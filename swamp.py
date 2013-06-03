@@ -17,7 +17,7 @@ from bs4 import BeautifulSoup
 from urlparse import urljoin
 
 def main():
-	url = 'http://azarius.shulgin'
+	url = 'http://localhost'
 	pool = Pool(5)
 	spawner = Spawner(pool)
 
@@ -74,20 +74,8 @@ class Handle():
 
 	fields = []
 
-	_hash = None
-
 	def __init__(self, context):
 		self.context = context
-
-	def __hash__(self):
-		if self._hash == None:
-			#FIXME shorten self.url a bit
-			s = ':'.join([self.method, self.context] + self.fields)
-			m = md5()
-			m.update(s)
-			self._hash = m.hexdigest().__hash__()
-
-		return self._hash
 
 	def process(self):
 		url = urljoin(self.context.referer, self.context.url)
@@ -106,7 +94,7 @@ class Handle():
 		try:
 			text = r.text
 		except TypeError:
-			# this does not seem to be test, skip
+			# this does not seem to be text, skip
 			return []
 
 		return self.content(text)
@@ -136,9 +124,20 @@ class URLContext():
 
 	method = 'get'
 
+	_hash = None
+
 	def __init__(self, url, referer):
 		self.url = url
 		self.referer = referer
+
+	def __hash__(self):
+		if self._hash == None:
+			s = ':'.join([self.method, self.url])
+			m = md5()
+			m.update(s)
+			self._hash = m.hexdigest().__hash__()
+
+		return self._hash
 
 if __name__ == '__main__':
 	main()
