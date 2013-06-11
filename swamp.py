@@ -14,10 +14,10 @@ monkey.patch_all()
 import requests
 from hashlib import md5
 from bs4 import BeautifulSoup
-from urlparse import urljoin
+from urlparse import urlsplit, urljoin
 
 def main():
-	url = 'http://localhost'
+	url = 'http://azarius.localhost'
 	pool = Pool(5)
 	spawner = Spawner(pool)
 
@@ -83,12 +83,18 @@ class Handle():
 		try:
 			r = requests.get(url)
 		except Exception as e:
-			print 'Error during request:', str(e)
+			print '-!- Error during request:', str(e)
 			return []
 
 		print r.status_code, url
 
-		if (r.status_code != 200):
+		if r.status_code != 200:
+			return []
+
+		# only check return code of external urls, dont crawl them
+		referer_parts = urlsplit(self.context.referer)
+		url_parts = urlsplit(url)
+		if self.context.referer != '' and referer_parts.netloc != url_parts.netloc:
 			return []
 
 		try:
@@ -97,21 +103,26 @@ class Handle():
 			# this does not seem to be text, skip
 			return []
 
-		return self.content(text)
+		return self.content(text, url)
 
-	def content(self, body):
+	def content(self, body, referer):
 		found = []
 
 		try:
 			soup = BeautifulSoup(body)
 		except Exception:
-			print 'Document could not be parsed!'
+			print '-!- Document could not be parsed!'
 			return found
 
 		atags = soup.find_all('a')
 
 		for atag in atags:
-			new = URLContext(atag.get('href'), self.context.url)
+			href = atag.get('href')
+
+			if href == None:
+				continue
+
+			new = URLContext(href, referer)
 			found.append(new)
 
 		return found
@@ -127,17 +138,23 @@ class URLContext():
 	_hash = None
 
 	def __init__(self, url, referer):
-		self.url = url
+		if url == None:
+			raise Exception('Cannot url with type None')
+
+		self.url = str(url)
 		self.referer = referer
 
-	def __hash__(self):
-		if self._hash == None:
-			s = ':'.join([self.method, self.url])
-			m = md5()
-			m.update(s)
-			self._hash = m.hexdigest().__hash__()
+	def __cmp__(self, other):
+		return self.__hash__() - other.__hash__()
 
-		return self._hash
+	def __hash__(self):
+		#if self._hash == None:
+			#s = ':'.join([self.method, self.url])
+			#m = md5()
+			#m.update(s)
+			#self._hash = m.hexdigest().__hash__()
+
+		return self.url.__hash__()
 
 if __name__ == '__main__':
 	main()
