@@ -141,7 +141,11 @@ class URLContext():
 		if url == None:
 			raise Exception('Cannot url with type None')
 
-		self.url = str(url)
+		try:
+			self.url = str(url)
+		except Exception:
+			print '-!- Could not convert url to string:', url
+
 		self.referer = referer
 
 	def __cmp__(self, other):
