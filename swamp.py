@@ -64,6 +64,10 @@ class Spawner():
 
 	def wait(self):
 		while len(self.jobs) > 0:
+			# remove dead jobs
+			self.jobs = filter(lambda j: not j.dead, self.jobs)
+
+			# wait for remaining jobs to finish
 			gevent.joinall(self.jobs)
 
 class Handle():
