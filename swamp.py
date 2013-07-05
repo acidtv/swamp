@@ -1,10 +1,11 @@
 #!/usr/bin/python
 
 import sys
+import argparse
 import gevent
 
 if 'threading' in sys.modules:
-	        raise Exception('threading module loaded before patching!')
+	raise Exception('threading module loaded before patching!')
 
 from gevent import monkey
 from gevent.pool import Pool
@@ -16,9 +17,12 @@ from hashlib import md5
 from bs4 import BeautifulSoup
 from urlparse import urlsplit, urljoin
 
-def main():
-	url = 'http://azarius.localhost'
-	pool = Pool(5)
+def main(args):
+	print '-i- Checking', args.url
+	url = args.url
+
+	print '-i- Using a pool of %s requests' % args.pool
+	pool = Pool(args.pool)
 	spawner = Spawner(pool)
 
 	# context in which new urls are relative to starting url
@@ -165,4 +169,9 @@ class URLContext():
 		return self.url.__hash__()
 
 if __name__ == '__main__':
-	main()
+	parser = argparse.ArgumentParser(description='Swamp checks your website for errors.')
+	parser.add_argument('url', help='The target url')
+	parser.add_argument('--pool', dest='pool', default=5, type=int, metavar='size', required=False, help='Number of simultaneous requests to keep in the pool.')
+	args = parser.parse_args()
+
+	main(args)
