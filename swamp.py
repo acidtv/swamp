@@ -8,7 +8,7 @@ if 'threading' in sys.modules:
 	raise Exception('threading module loaded before patching!')
 
 from gevent import monkey
-from gevent.pool import Pool
+from gevent.queue import JoinableQueue
 monkey.patch_all()
 
 # requests must be loaded after gevent because of threading module
@@ -21,9 +21,9 @@ def main(args):
 	print '-i- Checking', args.url
 	url = args.url
 
-	print '-i- Using a pool of %s requests' % args.pool
-	pool = Pool(args.pool)
-	spawner = Spawner(pool)
+	print '-i- Using %s workers' % args.workers
+	q = JoinableQueue()
+	spawner = Spawner(q, workers)
 
 	# context in which new urls are relative to starting url
 	context = URLContext(url, url)
@@ -38,7 +38,7 @@ def main(args):
 
 class Spawner():
 
-	pool = None
+	q = None
 
 	found = None
 
@@ -46,33 +46,37 @@ class Spawner():
 
 	base_url = None
 
-	def __init__(self, pool):
+	def __init__(self, q, workers):
 		self.found = set()
-		self.pool = pool
+		self.q = q
+		
+		# spawn workers
+		for i in range(workers):
+			gevent.spawn(self.worker)
 
-	def add(self, item):
-		def job(self, item):
-			self.process_result(Handle(item).process())
-
-		self.jobs.append(self.pool.spawn(job, self, item))
+	def worker(self):
+		while True:
+			job = self.q.get()
+			try:
+				self.process_result(Handle(job).process())
+			finally:
+				self.q.task_done()
+				
+	def add(self, job):
+		self.q.put(job)
 
 	def process_result(self, found):
 		# remove urls we have found already
 		found = set(found) - self.found
 
-		for new in found:
-			self.add(new)
-
 		# update already found urls with the newly found ones
 		self.found |= set(found)
 
-	def wait(self):
-		while len(self.jobs) > 0:
-			# remove dead jobs
-			self.jobs = filter(lambda j: not j.dead, self.jobs)
+		for new in found:
+			self.add(new)
 
-			# wait for remaining jobs to finish
-			gevent.joinall(self.jobs)
+	def wait(self):
+		self.q.join()
 
 class Handle():
 
@@ -160,18 +164,12 @@ class URLContext():
 		return self.__hash__() - other.__hash__()
 
 	def __hash__(self):
-		#if self._hash == None:
-			#s = ':'.join([self.method, self.url])
-			#m = md5()
-			#m.update(s)
-			#self._hash = m.hexdigest().__hash__()
-
 		return self.url.__hash__()
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description='Swamp checks your website for errors.')
 	parser.add_argument('url', help='The target url')
-	parser.add_argument('--pool', dest='pool', default=5, type=int, metavar='size', required=False, help='Number of simultaneous requests to keep in the pool.')
+	parser.add_argument('--workers', dest='workers', default=5, type=int, metavar='amount', required=False, help='Number of workers to process requests with.')
 	args = parser.parse_args()
 
 	main(args)
