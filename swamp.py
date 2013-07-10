@@ -23,7 +23,7 @@ def main(args):
 
 	print '-i- Using %s workers' % args.workers
 	q = JoinableQueue()
-	spawner = Spawner(q, workers)
+	spawner = Spawner(q, args.workers)
 
 	# context in which new urls are relative to starting url
 	context = URLContext(url, url)
@@ -49,7 +49,7 @@ class Spawner():
 	def __init__(self, q, workers):
 		self.found = set()
 		self.q = q
-		
+
 		# spawn workers
 		for i in range(workers):
 			gevent.spawn(self.worker)
@@ -61,7 +61,7 @@ class Spawner():
 				self.process_result(Handle(job).process())
 			finally:
 				self.q.task_done()
-				
+
 	def add(self, job):
 		self.q.put(job)
 
@@ -70,7 +70,7 @@ class Spawner():
 		found = set(found) - self.found
 
 		# update already found urls with the newly found ones
-		self.found |= set(found)
+		self.found |= found
 
 		for new in found:
 			self.add(new)
@@ -98,7 +98,7 @@ class Handle():
 			print '-!- Error during request:', str(e)
 			return []
 
-		print r.status_code, url
+		print r.status_code, url, '---', self.context.referer
 
 		if r.status_code != 200:
 			return []
