@@ -28,7 +28,7 @@ def main(args):
 	# context in which new urls are relative to starting url
 	context = URLContext(url, url)
 
-	spawner.add(context)
+	spawner.add([context])
 
 	try:
 		spawner.wait()
@@ -58,22 +58,20 @@ class Spawner():
 		while True:
 			job = self.q.get()
 			try:
-				self.process_result(Handle(job).process())
+				self.add(Handle(job).process())
 			finally:
 				self.q.task_done()
 
-	def add(self, job):
-		self.q.put(job)
-
-	def process_result(self, found):
+	def add(self, found):
 		# remove urls we have found already
 		found = set(found) - self.found
 
 		# update already found urls with the newly found ones
 		self.found |= found
 
+		# put new urls in queue
 		for new in found:
-			self.add(new)
+			self.q.put(new)
 
 	def wait(self):
 		self.q.join()
