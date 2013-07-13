@@ -15,7 +15,10 @@ monkey.patch_all()
 import requests
 from hashlib import md5
 from bs4 import BeautifulSoup
-from urlparse import urlsplit, urljoin
+import urlparse
+import urlnorm
+import urllib
+import collections
 
 def main(args):
 	print '-i- Checking', args.url
@@ -88,7 +91,7 @@ class Handle():
 		self.context = context
 
 	def process(self):
-		url = urljoin(self.context.referer, self.context.url)
+		url = urlparse.urljoin(self.context.referer, self.context.url)
 
 		try:
 			r = requests.get(url)
@@ -102,8 +105,8 @@ class Handle():
 			return []
 
 		# only check return code of external urls, dont crawl them
-		referer_parts = urlsplit(self.context.referer)
-		url_parts = urlsplit(url)
+		referer_parts = urlparse.urlsplit(self.context.referer)
+		url_parts = urlparse.urlsplit(url)
 		if self.context.referer != '' and referer_parts.netloc != url_parts.netloc:
 			return []
 
@@ -152,9 +155,12 @@ class URLContext():
 			raise Exception('Cannot url with type None')
 
 		try:
-			self.url = str(url)
+			url = str(url)
 		except Exception:
 			print '-!- Could not convert url to string:', url
+
+		urlhelper = URLHelper()
+		self.url = urlhelper.normalize(url)
 
 		self.referer = referer
 
@@ -164,7 +170,33 @@ class URLContext():
 	def __hash__(self):
 		return self.url.__hash__()
 
+class URLHelper():
+
+	def normalize(self, url):
+		# normalize url path
+		url = urlparse.urlparse(url)
+		(scheme, authority, path, parameters, query, fragment) = urlnorm.norm(url)
+
+		# sort query keys
+		query = sorted(urlparse.parse_qs(query).items())
+		query = collections.OrderedDict(query)
+
+		# sort query value lists
+		for key, value in query.iteritems():
+			query[key] = value[0]
+
+		query = urllib.urlencode(query)
+		url = urlparse.urlunsplit((scheme, authority, path, query, fragment))
+
+		return url
+
+
 if __name__ == '__main__':
+	helper = URLHelper()
+	print helper.normalize('/smartshop/?lang=1&currency=3');
+	print helper.normalize('/smartshop/?currency=3&lang=1');
+	sys.exit()
+
 	parser = argparse.ArgumentParser(description='Swamp checks your website for errors.')
 	parser.add_argument('url', help='The target url')
 	parser.add_argument('--workers', dest='workers', default=5, type=int, metavar='amount', required=False, help='Number of workers to process requests with.')
