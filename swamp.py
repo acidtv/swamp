@@ -99,7 +99,7 @@ class Handle():
 			print '-!- Error during request:', str(e)
 			return []
 
-		print r.status_code, url, '---', self.context.referer
+		print r.status_code, url
 
 		if r.status_code != 200:
 			return []
@@ -159,8 +159,12 @@ class URLContext():
 		except Exception:
 			print '-!- Could not convert url to string:', url
 
+		# normalize
 		urlhelper = URLHelper()
-		self.url = urlhelper.normalize(url)
+		url = urlhelper.normalize(url)
+
+		# make url absolute
+		self.url = urlparse.urljoin(referer, url)
 
 		self.referer = referer
 
@@ -181,10 +185,11 @@ class URLHelper():
 		query = sorted(urlparse.parse_qs(query).items())
 		query = collections.OrderedDict(query)
 
-		# sort query value lists
+		# fix value lists
 		for key, value in query.iteritems():
 			query[key] = value[0]
 
+		# assemble normalized url
 		query = urllib.urlencode(query)
 		url = urlparse.urlunsplit((scheme, authority, path, query, fragment))
 
@@ -192,11 +197,6 @@ class URLHelper():
 
 
 if __name__ == '__main__':
-	helper = URLHelper()
-	print helper.normalize('/smartshop/?lang=1&currency=3');
-	print helper.normalize('/smartshop/?currency=3&lang=1');
-	sys.exit()
-
 	parser = argparse.ArgumentParser(description='Swamp checks your website for errors.')
 	parser.add_argument('url', help='The target url')
 	parser.add_argument('--workers', dest='workers', default=5, type=int, metavar='amount', required=False, help='Number of workers to process requests with.')
