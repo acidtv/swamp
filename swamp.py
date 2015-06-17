@@ -174,8 +174,7 @@ class URLHelper():
 
 	def normalize(self, url):
 		# normalize url path
-		url = urlparse.urlparse(url)
-		(scheme, authority, path, parameters, query, fragment) = urlnorm.norm(url)
+                (scheme, authority, path, parameters, query, fragment) = urlparse.urlparse(url)
 
 		# sort query keys
 		query = sorted(urlparse.parse_qs(query).items())
@@ -192,11 +191,6 @@ class URLHelper():
 
 
 if __name__ == '__main__':
-	helper = URLHelper()
-	print helper.normalize('/smartshop/?lang=1&currency=3');
-	print helper.normalize('/smartshop/?currency=3&lang=1');
-	sys.exit()
-
 	parser = argparse.ArgumentParser(description='Swamp checks your website for errors.')
 	parser.add_argument('url', help='The target url')
 	parser.add_argument('--workers', dest='workers', default=5, type=int, metavar='amount', required=False, help='Number of workers to process requests with.')
