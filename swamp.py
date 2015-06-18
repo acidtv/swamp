@@ -209,8 +209,7 @@ class URLHelper():
 
 	def normalize(self, url):
 		# normalize url path
-		url = urlparse.urlparse(url)
-		(scheme, authority, path, parameters, query, fragment) = urlnorm.norm(url)
+                (scheme, authority, path, parameters, query, fragment) = urlparse.urlparse(url)
 
 		# sort query keys
 		query = sorted(urlparse.parse_qs(query).items())
