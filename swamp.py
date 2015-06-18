@@ -26,12 +26,21 @@ def main(args):
 
 	print '-i- Using %s workers' % args.workers
 	q = JoinableQueue()
-	spawner = Spawner(q, args.workers)
+
+	pagehandler = SwampPageHandler()
+	pagehandler.ignore_query = args.ignore_query
+
+	if args.ignore_query:
+		print '-i- Ignoring the following query params:', args.ignore_query
+
+	print args
+	sys.exit()
+	worker = Worker(pagehandler, q, args.workers)
 
 	# context in which new urls are relative to starting url
 	context = URLContext(url, url)
 
-	spawner.add([context])
+	worker.add([context])
 
 	try:
 		spawner.wait()
@@ -39,19 +48,22 @@ def main(args):
 		print ' Abort.'
 		return
 
-class Spawner():
+class Worker():
 
 	q = None
 
 	found = None
 
-	jobs = []
-
 	base_url = None
 
-	def __init__(self, q, workers):
+	processed = 0
+
+	PageHandler = None
+
+	def __init__(self, pagehandler, q, workers):
 		self.found = set()
 		self.q = q
+		self.pagehandler = pagehandler
 
 		# spawn workers
 		for i in range(workers):
@@ -61,8 +73,9 @@ class Spawner():
 		while True:
 			job = self.q.get()
 			try:
-				self.add(Handle(job).process())
+				self.add(self.pagehandler.process(job))
 			finally:
+				self.processed += 1
 				self.q.task_done()
 
 	def add(self, found):
@@ -72,6 +85,8 @@ class Spawner():
 		# update already found urls with the newly found ones
 		self.found |= found
 
+		print 'Found', len(self.found), 'Processed', self.processed, 'Queue', self.q.qsize()
+
 		# put new urls in queue
 		for new in found:
 			self.q.put(new)
@@ -79,7 +94,7 @@ class Spawner():
 	def wait(self):
 		self.q.join()
 
-class Handle():
+class SwampPageHandler():
 
 	context = None
 
@@ -87,10 +102,10 @@ class Handle():
 
 	fields = []
 
-	def __init__(self, context):
-		self.context = context
+	ignore_query = []
 
-	def process(self):
+	def process(self, context):
+		self.context = context
 		url = urlparse.urljoin(self.context.referer, self.context.url)
 
 		try:
@@ -140,6 +155,29 @@ class Handle():
 
 		return found
 
+	def _normalize(self, url):
+		# normalize
+		urlhelper = URLHelper()
+		url = urlhelper.normalize(url)
+
+		# make url absolute
+		self.url = urlparse.urljoin(referer, url)
+
+	def _remove_ignored_params(self, url):
+		url = urlparse.urlparse(url)
+		query = urlparse.parse_qs(query)
+
+		for param in self.ignore_query:
+			try:
+				del query[param]
+			except Exception:
+				pass
+
+		query = urllib.urlencode(query)
+		url = urlparse.urlunsplit((scheme, authority, path, query, fragment))
+		return url
+
+
 class URLContext():
 
 	url = None
@@ -158,13 +196,6 @@ class URLContext():
 			url = str(url)
 		except Exception:
 			print '-!- Could not convert url to string:', url
-
-		# normalize
-		urlhelper = URLHelper()
-		url = urlhelper.normalize(url)
-
-		# make url absolute
-		self.url = urlparse.urljoin(referer, url)
 
 		self.referer = referer
 
@@ -199,7 +230,8 @@ class URLHelper():
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description='Swamp checks your website for errors.')
 	parser.add_argument('url', help='The target url')
-	parser.add_argument('--workers', dest='workers', default=5, type=int, metavar='amount', required=False, help='Number of workers to process requests with.')
+	parser.add_argument('--workers', dest='workers', default=5, type=int, metavar='amount', required=False, help='number of workers to process requests with.')
+	parser.add_argument('--ignore-query', dest='ignore_query', action='append', metavar='param', required=False, help='query param to ignore')
 	args = parser.parse_args()
 
 	main(args)
