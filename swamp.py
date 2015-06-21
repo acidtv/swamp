@@ -38,14 +38,7 @@ def main(args):
     # context in which new urls are relative to starting url
     context = URLContext(url, url)
 
-    test = [
-        URLContext('http://azarius.vagrant/smartshop/energy/psychedelics/slice-trance-sensation/', 'http://azarius.vagrant/smartshop/energy/psychedelics/slice-trance-sensation/'),
-        URLContext('http://azarius.vagrant/headshop/electronic-cigarettes/e-cigarette-refill-cartridges/fly-high-amsterdam-e-liquid/', 'http://azarius.vagrant/headshop/electronic-cigarettes/e-cigarette-refill-cartridges/fly-high-amsterdam-e-liquid/'),
-        URLContext('http://azarius.vagrant/vaporizers/electric_vaporizers/vaporizer-arizer-extreme-q/', 'http://azarius.vagrant/vaporizers/electric_vaporizers/vaporizer-arizer-extreme-q/'),
-    ]
-
-    #worker.add([context])
-    worker.add(test)
+    worker.add([context])
 
     try:
         worker.wait()
@@ -84,9 +77,6 @@ class Worker():
                 self.q.task_done()
 
     def add(self, found):
-        if self.processed > 2:
-            return
-
         # remove urls we have found already
         found = set(found) - self.found
 
@@ -207,7 +197,7 @@ class URLContext():
         except Exception:
             print '-!- Could not convert url to string:', url
 
-            self.referer = referer
+        self.referer = referer
 
     def __cmp__(self, other):
         return cmp(self.url, other.url)
