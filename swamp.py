@@ -29,6 +29,7 @@ def main(args):
 
     pagehandler = SwampPageHandler()
     pagehandler.ignore_query = args.ignore_query
+    pagehandler.no_check_external = args.no_check_external
 
     if args.ignore_query:
         print '-i- Ignoring the following query params:', args.ignore_query
@@ -103,10 +104,22 @@ class SwampPageHandler():
 
     ignore_query = []
 
+    no_check_external = False
+
     def process(self, context):
         self.context = context
-        #url = urlparse.urljoin(self.context.referer, self.context.url)
         url = context.url
+
+        # determine if this is an external page
+        is_external = False
+        referer_parts = urlparse.urlsplit(self.context.referer)
+        url_parts = urlparse.urlsplit(url)
+        if self.context.referer != '' and referer_parts.netloc != url_parts.netloc:
+            is_external = True
+
+        # don't crawl external page if no_check_external is set
+        if self.no_check_external and is_external == True:
+            return []
 
         try:
             r = requests.get(url)
@@ -120,9 +133,7 @@ class SwampPageHandler():
             return []
 
         # only check return code of external urls, dont crawl them
-        referer_parts = urlparse.urlsplit(self.context.referer)
-        url_parts = urlparse.urlsplit(url)
-        if self.context.referer != '' and referer_parts.netloc != url_parts.netloc:
+        if is_external:
             return []
 
         try:
@@ -231,6 +242,7 @@ if __name__ == '__main__':
     parser.add_argument('url', help='The target url')
     parser.add_argument('--workers', dest='workers', default=5, type=int, metavar='amount', required=False, help='number of workers to process requests with.')
     parser.add_argument('--ignore-query', dest='ignore_query', action='append', metavar='param', required=False, help='query param to ignore')
+    parser.add_argument('--no-check-external', dest='no_check_external', action='store_true', default=False, required=False, help='do not check external urls')
     args = parser.parse_args()
 
     main(args)
